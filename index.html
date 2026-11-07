@@ -276,8 +276,9 @@ async function render() {
     else if (route.name === 'search') renderSearch();
     else if (route.name === 'admin') await renderAdmin();
   } catch (e) {
-    $('#main').innerHTML = `<div class="col"><p class="sub center">${esc(e.message)}</p></div>`;
+    $('#main').innerHTML = `<div class="col"><p class="sub center">Ошибка: ${esc(e.message)}</p></div>`;
   }
+  watchViews($('#main'));
 }
 
 // ---------- Экран входа и регистрации ----------
@@ -351,6 +352,7 @@ async function loadFeed() {
       $('#feed').innerHTML = `<p class="sub center">${route.tab === 'follow' ? 'Подпишитесь на людей, чтобы видеть их посты' : 'Пока пусто. Напишите первый пост!'}</p>`;
     } else {
       $('#feed').insertAdjacentHTML('beforeend', posts.map(postCard).join(''));
+      watchViews($('#feed'));
     }
     feedBefore = posts.length ? posts[posts.length - 1].id : feedBefore;
     $('#moreBox').innerHTML = posts.length >= 20 ? '<button class="pill" data-more>Показать ещё</button>' : '';
@@ -437,6 +439,7 @@ async function runSearch(q) {
         <div class="urow"><div class="ph-head" style="flex:1;min-width:0">${av(u, 'av sm')}<div class="who"><span class="nm" data-user="${esc(u.name)}">${esc(u.name)}${verify(u)}${badges(u)}</span><span class="tm">${esc(u.bio)}</span></div></div></div>`).join('')}` : ''}
       ${posts.length ? `<h2 class="section">Посты</h2>${posts.map(postCard).join('')}` : ''}
       ${!users.length && !posts.length && q ? '<p class="sub center">Ничего не найдено</p>' : ''}`;
+    watchViews($('#sres'));
   } catch (e) { $('#sres').innerHTML = `<p class="sub">${esc(e.message)}</p>`; }
 }
 
@@ -586,6 +589,33 @@ document.addEventListener('input', (e) => {
   }
   if (e.target.id === 'aq') { /* поиск в админке: фильтр по уже загруженным */ }
 });
+
+// ---------- Просмотры: пост засчитывается, когда он появился на экране ----------
+const seenIds = new Set();
+let viewQueue = [];
+let viewTimer = null;
+function flushViews() {
+  if (!viewQueue.length || !me) return;
+  const ids = viewQueue;
+  viewQueue = [];
+  api('/api/s/view', { ids }).catch(() => {});
+}
+const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+  for (const en of entries) {
+    if (!en.isIntersecting) continue;
+    const id = Number(en.target.dataset.open);
+    if (!id || seenIds.has(id)) continue;
+    seenIds.add(id);
+    viewQueue.push(id);
+    io.unobserve(en.target);
+  }
+  clearTimeout(viewTimer);
+  viewTimer = setTimeout(flushViews, 1500);
+}, { threshold: 0.6 }) : null;
+function watchViews(root) {
+  if (!io || !root) return;
+  root.querySelectorAll('[data-open]').forEach((el) => io.observe(el));
+}
 
 // ---------- Старт ----------
 (async () => {

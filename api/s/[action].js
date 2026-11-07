@@ -72,12 +72,6 @@ export default async function handler(request) {
 
       if (a === 'post') {
         const id = Number(sp.get('id')) || 0;
-        if (user) {
-          const ins = await run('INSERT OR IGNORE INTO post_views(post_id, user_id) VALUES(?, ?)', [id, user.id]);
-          if (ins.rowsAffected) await run('UPDATE posts SET views = views + 1 WHERE id = ?', [id]);
-        } else {
-          await run('UPDATE posts SET views = views + 1 WHERE id = ?', [id]);
-        }
         const row = await one(`${POST_SQL} WHERE p.id = ?`, [uid, id]);
         if (!row) return json({ error: 'Пост не найден' }, 404);
         const cm = await q(
@@ -121,6 +115,17 @@ export default async function handler(request) {
 
     // ---- Запись ----
     const body = await request.json().catch(() => ({}));
+
+    // Просмотры: фронтенд присылает id постов, которые появились на экране в ленте
+    if (a === 'view') {
+      if (!user) return json({ ok: true });
+      const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number).filter((n) => n > 0).slice(0, 50);
+      for (const id of ids) {
+        const ins = await run('INSERT OR IGNORE INTO post_views(post_id, user_id) VALUES(?, ?)', [id, user.id]);
+        if (ins.rowsAffected) await run('UPDATE posts SET views = views + 1 WHERE id = ?', [id]);
+      }
+      return json({ ok: true });
+    }
 
     if (a === 'post_create') {
       if (!user) return json({ error: 'Нужен вход' }, 401);
