@@ -3,7 +3,7 @@
 import { put, del } from '@vercel/blob';
 import { init, json, q, one, run, now, clip, rnd, getUser, actionOf, ADMIN, db } from '../../lib/common.js';
 
-export const config = { runtime: 'edge' };
+// Node.js-рантайм: нужен для @vercel/blob (на Edge его модули не поддерживаются)
 
 const BADGES = {
   star: { label: 'Звезда', emoji: '⭐' },
