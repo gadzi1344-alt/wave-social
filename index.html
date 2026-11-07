@@ -370,19 +370,23 @@ async function renderFeed() {
 async function loadFeed() {
   const first = !feedBefore;
   const q = `tab=${route.tab || 'all'}${feedBefore ? '&before=' + feedBefore : ''}`;
+  const show = (html) => { const el = $('#feed'); if (el) el.innerHTML = html; };
   try {
     const { posts } = await api('/api/s/feed?' + q);
-    if (first) $('#feed').innerHTML = '';
+    const feedEl = $('#feed');
+    if (!feedEl) return; // пользователь уже перешёл на другой экран
+    if (first) feedEl.innerHTML = '';
     if (first && !posts.length) {
-      $('#feed').innerHTML = `<p class="sub center">${route.tab === 'follow' ? 'Подпишитесь на людей, чтобы видеть их посты' : 'Пока пусто. Напишите первый пост!'}</p>`;
+      feedEl.innerHTML = `<p class="sub center">${route.tab === 'follow' ? 'Подпишитесь на людей, чтобы видеть их посты' : 'Пока пусто. Напишите первый пост!'}</p>`;
     } else {
-      $('#feed').insertAdjacentHTML('beforeend', posts.map(postCard).join(''));
-      watchViews($('#feed'));
+      feedEl.insertAdjacentHTML('beforeend', posts.map(postCard).join(''));
+      watchViews(feedEl);
     }
     feedBefore = posts.length ? posts[posts.length - 1].id : feedBefore;
-    $('#moreBox').innerHTML = posts.length >= 20 ? '<button class="pill" data-more>Показать ещё</button>' : '';
+    const more = $('#moreBox');
+    if (more) more.innerHTML = posts.length >= 20 ? '<button class="pill" data-more>Показать ещё</button>' : '';
   } catch (e) {
-    $('#feed').innerHTML = `<p class="sub center">Ошибка ленты: ${esc(e.message)}</p>`;
+    show(`<p class="sub center">Ошибка ленты: ${esc(e.message)}</p>`);
   }
 }
 
@@ -459,13 +463,14 @@ let searchTimer;
 async function runSearch(q) {
   try {
     const { users, posts } = await api('/api/s/search?q=' + encodeURIComponent(q));
+    if (!$('#sres')) return;
     $('#sres').innerHTML = `
       ${users.length ? `<h2 class="section">Люди</h2>${users.map((u) => `
         <div class="urow"><div class="ph-head" style="flex:1;min-width:0">${av(u, 'av sm')}<div class="who"><span class="nm" data-user="${esc(u.name)}">${esc(u.name)}${verify(u)}${badges(u)}</span><span class="tm">${esc(u.bio)}</span></div></div></div>`).join('')}` : ''}
       ${posts.length ? `<h2 class="section">Посты</h2>${posts.map(postCard).join('')}` : ''}
       ${!users.length && !posts.length && q ? '<p class="sub center">Ничего не найдено</p>' : ''}`;
     watchViews($('#sres'));
-  } catch (e) { $('#sres').innerHTML = `<p class="sub">${esc(e.message)}</p>`; }
+  } catch (e) { const el = $('#sres'); if (el) el.innerHTML = `<p class="sub">${esc(e.message)}</p>`; }
 }
 
 // ---------- Админ-панель: галочка и значки ----------
