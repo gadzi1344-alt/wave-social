@@ -180,6 +180,12 @@
   .gate-card .sub{text-align:center}
   .gate-logo{width:56px;height:56px;border-radius:18px;background:var(--txt);color:#000;display:grid;place-items:center;font-weight:900;font-size:24px;margin:0 auto 6px}
   .gate-card .pill{width:100%;padding:13px}
+  /* ---------- Боковая панель: закруглённая палка со значками (компьютер) ---------- */
+  @media (min-width:761px){
+    .nav{width:76px;padding:14px 0;gap:12px;background:var(--side);border:1px solid var(--line);border-radius:44px;box-shadow:0 20px 50px #0007}
+    .nav .newbtn{margin-top:6px;background:var(--txt);color:#000}
+    .newbtn{width:52px;height:52px}
+  }
 </style>
 </head>
 <body>
@@ -191,8 +197,8 @@
       <button data-go="feed" title="Лента"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg></button>
       <button data-go="search" title="Поиск"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
       <button data-go="profile" title="Профиль"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+      <button class="newbtn" id="newBtn" title="Новый пост"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
     </nav>
-    <button class="newbtn" id="newBtn" title="Новый пост"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   </aside>
 
   <main id="main"></main>
@@ -309,7 +315,7 @@ function composer() {
       <label class="attach">📷 Фото<input type="file" id="pfile" accept="image/*"></label>
       <span class="grow"></span>
       <button class="pill on" id="publish">Опубликовать</button>
-    </div>
+    </div><div class="sub" id="pstatus" style="margin-top:8px;color:#d97070;min-height:16px"></div>
   </div>`;
 }
 
@@ -340,6 +346,7 @@ async function renderFeed() {
     <div id="feed"></div>
     <div class="more" id="moreBox"></div>
   </div>`;
+  $('#publish') && ($('#publish').onclick = publishPost);
   feedBefore = null;
   await loadFeed();
 }
@@ -480,13 +487,6 @@ document.addEventListener('click', async (e) => {
     if (t('#newBtn') || t('#tabNew')) { go({ name: 'feed', tab: 'all' }); setTimeout(() => $('#ptext')?.focus(), 150); return; }
     if (t('[data-tab]')) { route.tab = t('[data-tab]').dataset.tab; return renderFeed(); }
     if (t('[data-more]')) return loadFeed();
-    if (t('#publish')) {
-      const text = $('#ptext').value.trim();
-      if (!text && !pendingImg) return toast('Напишите текст или добавьте фото');
-      await api('/api/s/post_create', { text, image_key: pendingImg });
-      pendingImg = '';
-      return renderFeed();
-    }
     if (t('[data-del]')) {
       e.stopPropagation();
       if (!confirm('Удалить пост?')) return;
@@ -589,6 +589,28 @@ document.addEventListener('input', (e) => {
   }
   if (e.target.id === 'aq') { /* поиск в админке: фильтр по уже загруженным */ }
 });
+
+// ---------- Публикация поста ----------
+async function publishPost() {
+  const btn = $('#publish');
+  const status = $('#pstatus');
+  const text = ($('#ptext')?.value || '').trim();
+  status.textContent = '';
+  if (!text && !pendingImg) { status.textContent = 'Напишите текст или добавьте фото'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Публикуем…';
+  try {
+    await api('/api/s/post_create', { text, image_key: pendingImg });
+    pendingImg = '';
+    await renderFeed();
+    toast('Пост опубликован');
+  } catch (e) {
+    console.error('post_create failed:', e);
+    status.textContent = 'Не опубликовалось: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = 'Опубликовать';
+  }
+}
 
 // ---------- Просмотры: пост засчитывается, когда он появился на экране ----------
 const seenIds = new Set();
